@@ -109,7 +109,7 @@ computeMandelbrotSet( int W, int H, int maxIter )
     int nbp;
     MPI_Comm_size(globComm, &nbp);
     
-    MPI_Status status;
+    //MPI_Status status;
     
     if (H%nbp != 0)
     {
@@ -148,15 +148,15 @@ computeMandelbrotSet( int W, int H, int maxIter )
                0,                                         // root process
                globComm );
     
-    int offset = 0; // à ajuster si nécessaire
+    //int offset = 0; // à ajuster si nécessaire
     
-    if (rank == 0) {
+    /*if (rank == 0) {
         for (int srd = 1; srd < nbp; srd++) {
             MPI_Recv(pixels_loc.data() + offset, 1, MPI_INT, srd, 0, globComm, &status); //?&pixels_loc.data() ?
         }
     } else {
             MPI_Send(pixels_loc.data(), 1, MPI_INT, 0, 0, globComm);
-    }
+    }*/
     
     /*end = std::chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds = end-start;
@@ -192,7 +192,7 @@ int main(int nargs, char *argv[] )
      // Normalement, pour un bon rendu, il faudrait le nombre d'itérations
      // ci--dessous :
      //const int maxIter = 16777216;
-     const int maxIter = 8*65536;
+     const int maxIter = 65536;
      
      MPI_Init( &nargs, &argv );
      MPI_Comm globComm;
@@ -204,7 +204,10 @@ int main(int nargs, char *argv[] )
      
      auto iters = computeMandelbrotSet( W, H, maxIter );
      
-     if (rank == 0) savePicture("mandelbrot2.tga", W, H, iters, maxIter);
+     if (rank == 0) {
+         savePicture("mandelbrot2.tga", W, H, iters, maxIter);
+         std::cout << "Image crée." << std::endl;
+     }
      
      MPI_Finalize();
     
