@@ -119,12 +119,13 @@ computeMandelbrotSet( int W, int H, int maxIter )
     
     std::vector<int> pixels;
     std::vector<int> pixels_loc(W*H / nbp);
-    int imin_loc = H / nbp * rank;
-    int imax_loc = H / nbp * (rank+1);
+    int ibloc = nbp-rank-1;
+    int imin_loc = H / nbp * ibloc;
+    int imax_loc = H / nbp * (ibloc+1);
     int H_loc = H / nbp;
     
     for ( int i = imin_loc; i < imax_loc; ++i ) {
-        computeMandelbrotSetRow(W, H_loc, maxIter, i, pixels_loc.data() + W*(imax_loc-i-1) );
+        computeMandelbrotSetRow(W, H, maxIter, i, pixels_loc.data() + W*(imax_loc-i-1) );
     }
     
     if (rank == 0) {
@@ -165,7 +166,7 @@ computeMandelbrotSet( int W, int H, int maxIter )
     
     //MPI_Finalize();
     
-    return pixels_loc;
+    return pixels;
 }
 
 /** Construit et sauvegarde l'image finale **/
@@ -179,7 +180,7 @@ void savePicture( const std::string& filename, int W, int H, const std::vector<i
         double iter = scaleCol*nbIters[i];
         unsigned char r = (unsigned char)(256 - (unsigned (iter*256.) & 0xFF));
         unsigned char b = (unsigned char)(256 - (unsigned (iter*65536) & 0xFF));
-        unsigned char g = (unsigned char)(256 - (unsigned( iter*16777216) & 0xFF));
+        unsigned char g = (unsigned char)(256 - (unsigned (iter*16777216) & 0xFF));
         ofs << r << g << b;
     }
     ofs.close();
@@ -192,7 +193,7 @@ int main(int nargs, char *argv[] )
      // Normalement, pour un bon rendu, il faudrait le nombre d'itérations
      // ci--dessous :
      //const int maxIter = 16777216;
-     const int maxIter = 65536;
+     const int maxIter = 8*65536;
      
      MPI_Init( &nargs, &argv );
      MPI_Comm globComm;
