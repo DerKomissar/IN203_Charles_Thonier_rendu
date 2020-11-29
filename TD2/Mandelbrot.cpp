@@ -93,9 +93,9 @@ computeMandelbrotSetRow( int W, int H, int maxIter, int num_ligne, int* pixels)
 std::vector<int>
 computeMandelbrotSet( int W, int H, int maxIter )
 {
-    /*std::chrono::time_point<std::chrono::system_clock> start;
+    std::chrono::time_point<std::chrono::system_clock> start;
     std::chrono::time_point<std::chrono::system_clock> end;
-    start = std::chrono::system_clock::now();*/
+    start = std::chrono::system_clock::now();
     
     //std::vector<int> pixels(W*H / nbp);
     
@@ -108,9 +108,7 @@ computeMandelbrotSet( int W, int H, int maxIter )
     MPI_Comm_rank(globComm, &rank);
     int nbp;
     MPI_Comm_size(globComm, &nbp);
-    
-    //MPI_Status status;
-    
+    MPI_Status status;
     if (H%nbp != 0)
     {
         std::cerr << "H n'est pas dividible par nbp." << std::endl ;
@@ -124,14 +122,14 @@ computeMandelbrotSet( int W, int H, int maxIter )
     int imax_loc = H / nbp * (ibloc+1);
     int H_loc = H / nbp;
     
-    for ( int i = imin_loc; i < imax_loc; ++i ) {
+    /*for ( int i = imin_loc; i < imax_loc; ++i ) {
         computeMandelbrotSetRow(W, H, maxIter, i, pixels_loc.data() + W*(imax_loc-i-1) );
-    }
+    }*/
     
-    if (rank == 0) {
+    /*if (rank == 0) {
         pixels.resize(W*H);
         std::cout << "gathering" << std::endl;
-    }
+    }*/
     
     // À COMPLÉTER
     /*MPI_Gather(
@@ -144,27 +142,52 @@ computeMandelbrotSet( int W, int H, int maxIter )
         int root,
         MPI_Comm communicator)*/
     
-    MPI_Gather(pixels_loc.data(), W*H_loc, MPI_INT,       // emetteurs
+    /*MPI_Gather(pixels_loc.data(), W*H_loc, MPI_INT,       // emetteurs
                pixels.data(), W*H_loc, MPI_INT,           // receveur, bien mettre 2 fois la même taille!
                0,                                         // root process
-               globComm );
+               globComm );*/
     
     //int offset = 0; // à ajuster si nécessaire
     
-    /*if (rank == 0) {
-        for (int srd = 1; srd < nbp; srd++) {
-            MPI_Recv(pixels_loc.data() + offset, 1, MPI_INT, srd, 0, globComm, &status); //?&pixels_loc.data() ?
+    if (rank == 0) { // rank = 0 -> MASTER
+        std::cout << "   Master   " << rank << std::endl;
+        int count_task = 0;
+        for (int i = 1; i < nbp; i++)
+        {
+            MPI_Send(&count_task, 1, MPI_INT, i, 0, globComm);
+            count_task += 1;
         }
-    } else {
-            MPI_Send(pixels_loc.data(), 1, MPI_INT, 0, 0, globComm);
-    }*/
-    
-    /*end = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    std::cout << "Temps calcul ensemble mandelbrot : " << elapsed_seconds.count() << std::endl;*/
-    std::cout << "Calcul fini, penser à calculer le temps." << std::endl;
-    
-    //MPI_Finalize();
+        while (count_task < nbp) // nb_tasks
+        {
+            // status contiendra le numéro de proc ayant envoyé le résultat
+            MPI_Recv(pixels.data(), 1, MPI_INT, nbp, 0, globComm, &status); // nbp ou autre chose ? MPI_ANY_SOURCE ?
+            MPI_Send(&count_task, 1, MPI_INT, pixels.data()[0], 0, globComm);
+            count_task += 1;
+        }
+        // on envoie le signal de terminaison à tous les processus
+        for (int i=1; i<nbp; i++)
+        {
+            MPI_Send(NULL, 1, MPI_INT, i, 0, globComm);
+        }
+        
+    } else { // je suis travailleur
+        
+        std::cout << "   Slave   " << rank << std::endl;
+        int num_task = 0;
+        while (num_task != 0) { // tant que je reçois pas le numéro de terminaison
+            MPI_Recv(&num_task, 1, MPI_INT, 0, globComm, &status);
+            if (num_task >= 0) {
+                computeMandelbrotSetRow(W, H_loc, maxIter, num_task, pixels_loc.data() + W*(imax_loc-num_task-1) );
+                MPI_Send(pixels_loc.data(), 1, MPI_INT, *pixels_loc.data(), 0, globComm);
+            }
+        }
+    }
+    if (rank == 0) {
+        end = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        std::cout << "Temps calcul ensemble mandelbrot : " << elapsed_seconds.count() << std::endl;
+        //std::cout << "Calcul fini, penser à calculer le temps." << std::endl;
+    }
     
     return pixels;
 }
